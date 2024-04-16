@@ -45,7 +45,7 @@ class Sam3dGUI:
             'cur_img': None, 
             'btn_clear': 0, 
             'btn_text': 0, 
-            'prompt_type': 'point',
+            'prompt_type': 'text',
             'show_rgb': False
             }
         self.ctx = ctx
@@ -125,22 +125,7 @@ class Sam3dGUI:
                         html.Div([html.H3(['SAM Init'])]),
                         html.Br(),
 
-                        html.H5('Prompt Type:'),
-                        html.Div([
-                            dcc.Dropdown(
-                                id = 'prompt_type',
-                                options = [{'label': 'Points', 'value': 'point'}, 
-                                        {'label': 'Text', 'value': 'text'},],
-                                value = 'point'),
-                                html.Div(id = 'output-prompt_type')
-                        ]),
-                        html.Br(),
-
-                        html.H5('Point Prompts:'),
-                        html.Button('Clear Points', id='btn-nclicks-clear', n_clicks=0),
-                        html.Br(),
-
-                        html.H5('Text Prompt:'),
+                        html.H5('Please enter a text prompt:'),
                         html.Div([
                             dcc.Input(id='input-text-state', type='text', value='none'),
                             html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
@@ -248,25 +233,8 @@ class Sam3dGUI:
             '''
             update mask
             '''
-            if self.ctx['prompt_type'] == 'point':
-                if clickData is None and btn_point == self.ctx['btn_clear']:
-                    raise PreventUpdate
-
-                if btn_point > self.ctx['btn_clear']:
-                    self.ctx['btn_clear'] += 1
-                    ctx['click'] = []
-                    ctx['num_clicks'] = 0
-                    return self.ctx['fig0'], self.ctx['fig1'], self.ctx['fig2'], self.ctx['fig3'], 'none'
-                
-                ctx['num_clicks'] += 1
-                ctx['click'].append(np.array([clickData['points'][0]['x'], clickData['points'][0]['y']]))
-                
-                ctx['saved_click'] = np.stack(ctx['click'])
-                masks, fig0, fig1, fig2, fig3 = query(ctx['saved_click'])
-                ctx['masks'] = masks
-                return fig0, fig1, fig2, fig3, 'none'
             
-            elif self.ctx['prompt_type'] == 'text':
+            if self.ctx['prompt_type'] == 'text':
                 if btn_text > self.ctx['btn_text']:
                     self.ctx['btn_text'] += 1
                     self.ctx['text'] = text

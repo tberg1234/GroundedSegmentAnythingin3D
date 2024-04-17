@@ -37,7 +37,7 @@ def draw_figure(fig, title, animation_frame=None):
     return fig
 
 
-class Sam3dGUI:
+class GroundedSam3dGUI:
     def __init__(self, Seg3d, debug=False):
         ctx = {
             'num_clicks': 0, 
@@ -64,17 +64,9 @@ class Sam3dGUI:
         '''
         run dash app
         '''
-        def query(points=None, text=None):
+        def query(text=None):
             with torch.no_grad():
-                if text is None:
-                    input_point = points
-                    input_label = np.ones(len(input_point))
-                    masks, scores, logits = sam_pred.predict(
-                        point_coords=input_point,
-                        point_labels=input_label,
-                        multimask_output=True,
-                    )
-                elif points is None:
+                if text is not None:
                     input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
                     boxes = torch.tensor(input_boxes)[0:1].cuda()
                     transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
@@ -95,9 +87,7 @@ class Sam3dGUI:
             fig2 = draw_figure(fig2, 'mask1')
             fig3 = draw_figure(fig3, 'mask2')
 
-            if text is None:
-                fig0 = mark_image(ctx['cur_img'], points)
-            else:
+            if text is not None:
                 fig0 = ctx['cur_img']
             fig0 = draw_figure(fig0, 'original_image')
 
@@ -343,7 +333,7 @@ if __name__ == '__main__':
     sam_pred = Sam_predictor(torch.device('cuda'))
     sam_pred.predictor.set_image(image)
     video = np.stack(imageio.mimread('logs/llff/fern/render_train_coarse_segmentation_gui/video.rgbseg_gui.mp4'))
-    gui = Sam3dGUI(None, debug=True)
+    gui = GroundedSam3dGUI(None, debug=True)
     gui.ctx['cur_img'] = image
     gui.ctx['video'] = video
     gui.run_app(sam_pred.predictor, gui.ctx, image)

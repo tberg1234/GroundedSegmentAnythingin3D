@@ -19,7 +19,7 @@ from lib import utils
 from lib.bbox_utils import *
 from lib.configs import config_parser
 from lib import sam3d
-from lib.gui import Sam3dGUI
+from lib.gui import GroundedSam3dGUI
 from lib.render_utils import render_fn
 
 
@@ -48,7 +48,7 @@ def train_seg(args, cfg, data_dict):
         Seg3d = sam3d.Sam3D(args, cfg, cfg_model=cfg.coarse_model_and_render, cfg_train=cfg.coarse_train,
                 xyz_min=xyz_min_coarse, xyz_max=xyz_max_coarse,
                 data_dict=data_dict, stage='coarse')
-        gui = Sam3dGUI(Seg3d)
+        gui = GroundedSam3dGUI(Seg3d)
         gui.run()
         eps_coarse = time.time() - eps_coarse
         eps_time_str = f'{eps_coarse//3600:02.0f}:{eps_coarse//60%60:02.0f}:{eps_coarse%60:02.0f}'
@@ -70,7 +70,7 @@ def train_seg(args, cfg, data_dict):
                 xyz_min=xyz_min_fine, xyz_max=xyz_max_fine,
                 data_dict=data_dict, stage='fine',
                 coarse_ckpt_path=coarse_seg_ckpt_path)
-        gui = Sam3dGUI(Seg3d)
+        gui = GroundedSam3dGUI(Seg3d)
         gui.run()
         eps_fine = time.time() - eps_fine
         eps_time_str = f'{eps_fine//3600:02.0f}:{eps_fine//60%60:02.0f}:{eps_fine%60:02.0f}'

@@ -69,7 +69,7 @@ def config_parser():
     parser.add_argument("--num_epochs", type=int, default=1, help='number of training epochs')
     parser.add_argument("--lamb", type=float, default=1., help='the negative force in seg loss')
     parser.add_argument("--tau", type=float, default=0.5, help='the iou threshold')
-    parser.add_argument('--prompt_type', type=str, default='scene', choices=['scene', 'file', 'input', 'interactive', 'text'], 
+    parser.add_argument('--prompt_type', type=str, default='text', choices=['text'], 
                         help='the type of prompt, point or box')
     # type 1: scene property
     parser.add_argument("--scene", type=str, default=None,

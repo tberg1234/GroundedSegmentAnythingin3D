@@ -37,7 +37,7 @@ def draw_figure(fig, title, animation_frame=None):
     return fig
 
 
-class Sam3dGUI:
+class GroundedSam3dGUI:
     def __init__(self, Seg3d, debug=False):
         ctx = {
             'num_clicks': 0, 
@@ -45,7 +45,7 @@ class Sam3dGUI:
             'cur_img': None, 
             'btn_clear': 0, 
             'btn_text': 0, 
-            'prompt_type': 'point',
+            'prompt_type': 'text',
             'show_rgb': False
             }
         self.ctx = ctx
@@ -64,17 +64,9 @@ class Sam3dGUI:
         '''
         run dash app
         '''
-        def query(points=None, text=None):
+        def query(text=None):
             with torch.no_grad():
-                if text is None:
-                    input_point = points
-                    input_label = np.ones(len(input_point))
-                    masks, scores, logits = sam_pred.predict(
-                        point_coords=input_point,
-                        point_labels=input_label,
-                        multimask_output=True,
-                    )
-                elif points is None:
+                if text is not None:
                     input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
                     boxes = torch.tensor(input_boxes)[0:1].cuda()
                     transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
@@ -95,9 +87,7 @@ class Sam3dGUI:
             fig2 = draw_figure(fig2, 'mask1')
             fig3 = draw_figure(fig3, 'mask2')
 
-            if text is None:
-                fig0 = mark_image(ctx['cur_img'], points)
-            else:
+            if text is not None:
                 fig0 = ctx['cur_img']
             fig0 = draw_figure(fig0, 'original_image')
 
@@ -125,22 +115,7 @@ class Sam3dGUI:
                         html.Div([html.H3(['SAM Init'])]),
                         html.Br(),
 
-                        html.H5('Prompt Type:'),
-                        html.Div([
-                            dcc.Dropdown(
-                                id = 'prompt_type',
-                                options = [{'label': 'Points', 'value': 'point'}, 
-                                        {'label': 'Text', 'value': 'text'},],
-                                value = 'point'),
-                                html.Div(id = 'output-prompt_type')
-                        ]),
-                        html.Br(),
-
-                        html.H5('Point Prompts:'),
-                        html.Button('Clear Points', id='btn-nclicks-clear', n_clicks=0),
-                        html.Br(),
-
-                        html.H5('Text Prompt:'),
+                        html.H5('Please enter a text prompt:'),
                         html.Div([
                             dcc.Input(id='input-text-state', type='text', value='none'),
                             html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
@@ -224,6 +199,8 @@ class Sam3dGUI:
             
         ])
 
+
+
         @app.callback(Output('output-prompt_type', 'children'), [Input('prompt_type', 'value')])
         def update_prompt_type(value):
             self.ctx['prompt_type'] = value
@@ -231,6 +208,7 @@ class Sam3dGUI:
                 ctx['click'] = []
                 ctx['num_clicks'] = 0
             return f"Type {value} is chosen"
+
         
 
         @app.callback(
@@ -248,25 +226,8 @@ class Sam3dGUI:
             '''
             update mask
             '''
-            if self.ctx['prompt_type'] == 'point':
-                if clickData is None and btn_point == self.ctx['btn_clear']:
-                    raise PreventUpdate
-
-                if btn_point > self.ctx['btn_clear']:
-                    self.ctx['btn_clear'] += 1
-                    ctx['click'] = []
-                    ctx['num_clicks'] = 0
-                    return self.ctx['fig0'], self.ctx['fig1'], self.ctx['fig2'], self.ctx['fig3'], 'none'
-                
-                ctx['num_clicks'] += 1
-                ctx['click'].append(np.array([clickData['points'][0]['x'], clickData['points'][0]['y']]))
-                
-                ctx['saved_click'] = np.stack(ctx['click'])
-                masks, fig0, fig1, fig2, fig3 = query(ctx['saved_click'])
-                ctx['masks'] = masks
-                return fig0, fig1, fig2, fig3, 'none'
             
-            elif self.ctx['prompt_type'] == 'text':
+            if self.ctx['prompt_type'] == 'text':
                 if btn_text > self.ctx['btn_text']:
                     self.ctx['btn_text'] += 1
                     self.ctx['text'] = text
@@ -350,7 +311,7 @@ if __name__ == '__main__':
                               sam_model_registry)
     class Sam_predictor():
         def __init__(self, device):
-            sam_checkpoint = "./dependencies/sam_ckpt/sam_vit_h_4b8939.pth"
+            sam_checkpoint = "./dependencies/sam_ckpt/sam_vit_h_4b8939.pth" # TODO: replace with Grounded-SAM
             model_type = "vit_h"
             self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint).to(device)
             self.predictor = SamPredictor(self.sam)
@@ -375,7 +336,7 @@ if __name__ == '__main__':
     sam_pred = Sam_predictor(torch.device('cuda'))
     sam_pred.predictor.set_image(image)
     video = np.stack(imageio.mimread('logs/llff/fern/render_train_coarse_segmentation_gui/video.rgbseg_gui.mp4'))
-    gui = Sam3dGUI(None, debug=True)
+    gui = GroundedSam3dGUI(None, debug=True)
     gui.ctx['cur_img'] = image
     gui.ctx['video'] = video
     gui.run_app(sam_pred.predictor, gui.ctx, image)

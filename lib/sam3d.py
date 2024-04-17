@@ -30,7 +30,7 @@ class Sam3D(ABC):
             from mobile_sam import sam_model_registry
 
             model_type = "vit_t"
-            sam_checkpoint = "./dependencies/sam_ckpt/mobile_sam.pt"
+            sam_checkpoint = "./dependencies/sam_ckpt/mobile_sam.pt" # TODO: replace with Grounded-SAM
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -39,7 +39,8 @@ class Sam3D(ABC):
             self.sam.eval()
 
         else:
-            sam_checkpoint = "./dependencies/sam_ckpt/sam_vit_h_4b8939.pth"
+            from segment_anything import sam_model_registry
+            sam_checkpoint = "./dependencies/sam_ckpt/sam_vit_h_4b8939.pth" # TODO: replace with Grounded-SAM
             model_type = "vit_h"
             self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint).to(device)
         self.predictor = SamPredictor(self.sam)

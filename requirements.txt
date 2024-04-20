@@ -25,4 +25,5 @@ transformers==4.29.1
 yapf==0.32.0
 flask==2.2.0
 Werkzeug==2.2.2
+google-cloud-speech
 

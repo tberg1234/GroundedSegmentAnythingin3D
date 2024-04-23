@@ -29,3 +29,5 @@ google-cloud-speech
 Ninja
 einops-exts
 mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.0/index.html
+imageio[ffmpeg] #imageio==2.22.2
+pandas

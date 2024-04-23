@@ -23,5 +23,4 @@ srun -p ${PARTITION} \
     --cpus-per-task=${CPUS_PER_TASK} \
     --kill-on-bad-exit=1 \
     ${SRUN_ARGS} \
-
     python -u run.py --config="configs/llff/fern.py" --stop_at=20000 --render_video --i_weights=10000

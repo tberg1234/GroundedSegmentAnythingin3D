@@ -60,6 +60,7 @@ We now release the configs on these datasets:
 * *Inward-facing:* [mip-NeRF360](https://jonbarron.info/mipnerf360/), [LERF](https://www.lerf.io/)
 
 ### Data structure:  
+Make sure to download the data and set up the directories below prior to running
 <details>
   <summary> (click to expand) </summary>
 

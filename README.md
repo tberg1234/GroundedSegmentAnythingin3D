@@ -47,7 +47,7 @@ rm -rf segment-anything.zip
 cd segment-anything; pip install -e .
 
 # Installing Grounding-DINO
-cd ../../dependencies
+cd ../..
 git clone https://github.com/IDEA-Research/GroundingDINO.git
 cd GroundingDINO/; pip install -e .
 mkdir weights; cd weights

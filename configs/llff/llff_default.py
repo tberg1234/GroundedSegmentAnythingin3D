@@ -11,7 +11,7 @@ data = dict(
 )
 
 coarse_train = dict(
-    N_iters=100,
+    N_iters=0,
 )
 
 coarse_model_and_render = dict(

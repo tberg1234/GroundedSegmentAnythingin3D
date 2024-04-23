@@ -41,10 +41,13 @@ pip install -r requirements.txt
 mkdir dependencies; cd dependencies 
 mkdir sam_ckpt; cd sam_ckpt
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
-git clone git@github.com:facebookresearch/segment-anything.git 
+git clone git@github.com:facebookresearch/segment-anything.git
+unzip segment-anything.zip
+rm -rf segment-anything.zip
 cd segment-anything; pip install -e .
 
 # Installing Grounding-DINO
+cd ../../dependencies
 git clone https://github.com/IDEA-Research/GroundingDINO.git
 cd GroundingDINO/; pip install -e .
 mkdir weights; cd weights

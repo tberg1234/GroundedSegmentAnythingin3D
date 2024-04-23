@@ -23,5 +23,4 @@ srun -p ${PARTITION} \
     --cpus-per-task=${CPUS_PER_TASK} \
     --kill-on-bad-exit=1 \
     ${SRUN_ARGS} \
-
     python run_seg_gui.py --config="configs/llff/seg/seg_fern.py" --segment --sp_name="_gui" --num_prompts=20 --render_only --render_opt=video --dump_images --seg_type "seg_img" "seg_density"

@@ -15,6 +15,7 @@ import dash
 from dash import Dash, Input, Output, dcc, html, State
 from dash.exceptions import PreventUpdate
 from .self_prompting import grounding_dino_prompt
+from google.cloud import speech
 
 def mark_image(_img, points):
     assert(len(points) > 0)
@@ -45,6 +46,7 @@ class Sam3dGUI:
             'cur_img': None, 
             'btn_clear': 0, 
             'btn_text': 0, 
+            'btn_audio': 0,
             'prompt_type': 'point',
             'show_rgb': False
             }
@@ -64,6 +66,38 @@ class Sam3dGUI:
         '''
         run dash app
         '''
+        def send_file_to_google(upload_file_name):
+            return transcribe_model_selection(speech_file=upload_file_name, model="latest_short")
+        
+        def transcribe_model_selection(
+            speech_file: str,
+            model: str,) -> speech.RecognizeResponse:
+            """Transcribe the given audio file synchronously with
+            the selected model."""
+            client = speech.SpeechClient()
+
+            with open(speech_file, "rb") as audio_file:
+                content = audio_file.read()
+
+            audio = speech.RecognitionAudio(content=content)
+
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=8000,
+                language_code="en-US",
+                model=model,
+            )
+
+            response = client.recognize(config=config, audio=audio)
+
+            for i, result in enumerate(response.results):
+                alternative = result.alternatives[0]
+                print("-" * 20)
+                print(f"First alternative of result {i}")
+                print(f"Transcript: {alternative.transcript}")
+
+            return alternative.transcript
+        
         def query(points=None, text=None):
             with torch.no_grad():
                 if text is None:
@@ -130,7 +164,8 @@ class Sam3dGUI:
                             dcc.Dropdown(
                                 id = 'prompt_type',
                                 options = [{'label': 'Points', 'value': 'point'}, 
-                                        {'label': 'Text', 'value': 'text'},],
+                                        {'label': 'Text', 'value': 'text'},
+                                        {'label': 'Audio', 'value': 'audio'}],
                                 value = 'point'),
                                 html.Div(id = 'output-prompt_type')
                         ]),
@@ -146,6 +181,39 @@ class Sam3dGUI:
                             html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
                             html.Div(id='output-state-text')
                         ]),
+                        html.Br(),
+
+                        # html.H5('Audio File Upload'),
+                        # html.Div([
+                        #     dcc.Input(id='input-file', type='file', value='filename'),
+                        #     dcc.Upload()
+                        #     html.Button(id='file-submit-button-state', n_clicks=0, children='Upload and Generate'),
+                        #     html.Div(id='output-file')
+                        # ]),
+                        # html.Br(),
+
+                         dcc.Upload(
+                            id='upload-data',
+                            children=html.Div([
+                                'Drag and Drop or ',
+                                html.A('Select Files')
+                            ]),
+                            style={
+                                'width': '85%',
+                                'height': '60px',
+                                'lineHeight': '60px',
+                                'borderWidth': '1px',
+                                'borderStyle': 'dashed',
+                                'borderRadius': '5px',
+                                'textAlign': 'center',
+                                'margin': '10px'
+                            },
+                            max_size=-1,
+                            # Allow multiple files to be uploaded
+                            multiple=False
+                        ),
+                        html.Div(id='output-data-upload'),
+                        html.Button('Process Audio File', id='submit-audio-button-state', n_clicks=0),
                         html.Br(),
 
                         html.H5('Please select the mask:'),
@@ -232,6 +300,17 @@ class Sam3dGUI:
                 ctx['num_clicks'] = 0
             return f"Type {value} is chosen"
         
+        # @app.callback(dash.dependencies.Output('output-data-upload', 'children'),
+        #      [dash.dependencies.Input('upload-data', 'contents'),
+        #       dash.dependencies.Input('upload-data', 'filename')])
+        # def update_output(contents, filename):
+        #     if contents is not None:
+        #         # do something with contents
+        #         children='processed data from file ' + filename
+        #         return children
+        #     else:
+        #         return 'no contents'
+        
 
         @app.callback(
             Output('main_image', 'figure'),
@@ -242,9 +321,13 @@ class Sam3dGUI:
             Input('main_image', 'clickData'),
             Input('btn-nclicks-clear', 'n_clicks'),
             Input('submit-button-state', 'n_clicks'),
-            State('input-text-state', 'value')
+            State('input-text-state', 'value'),
+            Input('submit-audio-button-state', 'n_clicks'),
+            # Output('output-data-upload', 'children'),
+            Input('upload-data', 'contents'),
+            Input('upload-data', 'filename')
         )
-        def update_prompt(clickData, btn_point, btn_text, text):
+        def update_prompt(clickData, btn_point, btn_text, text, btn_audio, upload_data, upload_file_name):
             '''
             update mask
             '''
@@ -274,6 +357,20 @@ class Sam3dGUI:
                     ctx['masks'] = masks
                     return fig0, fig1, fig2, fig3, u'''
                         Input text is "{}"
+                    '''.format(text)
+                else:
+                    raise PreventUpdate
+                
+            elif self.ctx['prompt_type'] == 'audio':
+                if btn_audio > self.ctx['btn_audio']:
+                    self.ctx['btn_audio'] += 1
+                    print(f"upload file name is: {upload_file_name}")
+                    text = send_file_to_google(upload_file_name)
+                    self.ctx['text'] = text
+                    masks, fig0, fig1, fig2, fig3 = query(points=None, text=text)
+                    ctx['masks'] = masks
+                    return fig0, fig1, fig2, fig3, u'''
+                        Input audio parsed as text is "{}"
                     '''.format(text)
                 else:
                     raise PreventUpdate
@@ -310,7 +407,6 @@ class Sam3dGUI:
                 return fig_seg_rgb, fig_sam_mask
             else:
                 raise PreventUpdate
-        
 
         @app.callback(
             Output('container-button-training', 'children'),

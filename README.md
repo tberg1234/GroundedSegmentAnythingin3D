@@ -96,6 +96,10 @@ Make sure to download the data and set up the directories below prior to running
   --sp_name=_gui --num_prompts=20 \
   --render_opt=train --save_ckpt
   ```
+- Run SA3D in GUI via slurm
+  ```bash
+    bash slurm_ui.sh <partition> <job name>
+  ```
 - Render and Save Fly-through Videos
   ```bash
   python run_seg_gui.py --config=configs/llff/seg/seg_fern.py --segment \

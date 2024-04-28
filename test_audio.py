@@ -21,6 +21,8 @@ def transcribe_model_selection(
 
     response = client.recognize(config=config, audio=audio)
 
+    print(f"response: {response}")
+
     for i, result in enumerate(response.results):
         alternative = result.alternatives[0]
         print("-" * 20)
@@ -31,4 +33,4 @@ def transcribe_model_selection(
 
 
 if __name__ == "__main__":
-    transcribe_model_selection(speech_file="taylor_fern.wav", model="latest_short")
+    transcribe_model_selection(speech_file="taylor_houseplant.wav", model="latest_short")

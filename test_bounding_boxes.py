@@ -140,7 +140,7 @@ if __name__ == "__main__":
         bboxes.append(vertices)
         labels.append(obj.name)
 
-    print(bboxes)
+    print(f"bounding boxes: {bboxes}")
     print(labels)
 
     plot_bboxes(img_source, bboxes, False, labels)

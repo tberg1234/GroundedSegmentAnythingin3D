@@ -97,7 +97,10 @@ class Sam3dGUI:
                 print(f"First alternative of result {i}")
                 print(f"Transcript: {alternative.transcript}")
 
-            return alternative.transcript
+            if alternative:
+                return alternative.transcript
+
+            return None
         
         def localize_objects(image):
             """Localize objects in the local image.
@@ -125,10 +128,8 @@ class Sam3dGUI:
         
         def create_google_vision_bounding_boxes(image, text):
             objects = localize_objects(image)
-            # for obj in objects:
-            #     #print(obj)
-            #     vertices = obj.bounding_poly.normalized_vertices
-            #     display(drawVertices(img_source, vertices, obj.name))
+
+            print(f"Google objects: {objects}")
 
             img_arr = np.array(image)
             image_width = img_arr.shape[1]
@@ -136,22 +137,24 @@ class Sam3dGUI:
             bboxes = []
             labels = []
             for obj in objects:
-                if str(obj.name).lower() == str(text).lower():
+                obj_name = str(obj.name).lower().strip().replace(" ", "")
+                text_name = str(text).lower().strip().replace(" ", "")
+                print(f"Matching Object {obj_name} with Text {text_name}")
+                if obj_name == text_name:
                     xs = set()
                     ys = set()
                     vertices = obj.bounding_poly.normalized_vertices
                     for vert in vertices:
                         xs.add(vert.x)
                         ys.add(vert.y)
-                        min_x = min(xs)*image_width
-                        min_y = min(ys)*image_height
-                        max_x = max(xs)*image_width
-                        max_y = max(ys)*image_height
-                        vertices = [min_x, min_y, max_x, max_y]
-                        bboxes.append(vertices)
-                        labels.append(obj.name)
+                    min_x = min(xs)*image_width
+                    min_y = min(ys)*image_height
+                    max_x = max(xs)*image_width
+                    max_y = max(ys)*image_height
+                    vertices = [min_x, min_y, max_x, max_y]
+                    bboxes.append(vertices)
+                    labels.append(obj.name)
 
-            print(f"bounding boxes: {bboxes}")
             return bboxes
             
         
@@ -167,7 +170,11 @@ class Sam3dGUI:
                     )
                 elif points is None:
                     # input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
-                    input_boxes = create_google_vision_bounding_boxes(ctx['cur_img'], text)[0]
+                    google_bboxes = create_google_vision_bounding_boxes(ctx['cur_img'], text)
+                    input_boxes = [google_bboxes[0]]
+
+                    print(f"input boxes: {input_boxes}")
+                    print(f"input boxes shape: {np.array(input_boxes).shape}")
 
                     boxes = torch.tensor(input_boxes)[0:1].cuda()
                     transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
@@ -425,12 +432,13 @@ class Sam3dGUI:
                     self.ctx['btn_audio'] += 1
                     print(f"upload file name is: {upload_file_name}")
                     text = send_file_to_google(upload_file_name)
-                    self.ctx['text'] = text
-                    masks, fig0, fig1, fig2, fig3 = query(points=None, text=text)
-                    ctx['masks'] = masks
-                    return fig0, fig1, fig2, fig3, u'''
-                        Input audio parsed as text is "{}"
-                    '''.format(text)
+                    if text is not None:
+                        self.ctx['text'] = text
+                        masks, fig0, fig1, fig2, fig3 = query(points=None, text=text)
+                        ctx['masks'] = masks
+                        return fig0, fig1, fig2, fig3, u'''
+                            Input audio parsed as text is "{}"
+                        '''.format(text)
                 else:
                     raise PreventUpdate
             else:

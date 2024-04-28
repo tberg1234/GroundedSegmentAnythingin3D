@@ -16,6 +16,7 @@ from dash import Dash, Input, Output, dcc, html, State
 from dash.exceptions import PreventUpdate
 from .self_prompting import grounding_dino_prompt
 from google.cloud import speech
+from google.cloud import vision
 
 def mark_image(_img, points):
     assert(len(points) > 0)
@@ -98,6 +99,62 @@ class Sam3dGUI:
 
             return alternative.transcript
         
+        def localize_objects(image):
+            """Localize objects in the local image.
+            Args:
+            path: The path to the local file.
+            """
+
+            client = vision.ImageAnnotatorClient()
+
+            # image = vision.Image(image)
+
+            image = vision.Image(content=cv2.imencode('.jpg', image)[1].tostring())
+
+
+            objects = client.object_localization(image=image).localized_object_annotations
+
+            print(f"Number of objects found: {len(objects)}")
+            for object_ in objects:
+                print(f"\n{object_.name} (confidence: {object_.score})")
+                print("Normalized bounding polygon vertices: ")
+                for vertex in object_.bounding_poly.normalized_vertices:
+                    print(f" - ({vertex.x}, {vertex.y})")
+
+            return objects
+        
+        def create_google_vision_bounding_boxes(image, text):
+            objects = localize_objects(image)
+            # for obj in objects:
+            #     #print(obj)
+            #     vertices = obj.bounding_poly.normalized_vertices
+            #     display(drawVertices(img_source, vertices, obj.name))
+
+            img_arr = np.array(image)
+            image_width = img_arr.shape[1]
+            image_height = img_arr.shape[0]
+            bboxes = []
+            labels = []
+            for obj in objects:
+                if str(obj.name).lower() == str(text).lower():
+                    xs = set()
+                    ys = set()
+                    vertices = obj.bounding_poly.normalized_vertices
+                    for vert in vertices:
+                        xs.add(vert.x)
+                        ys.add(vert.y)
+                        min_x = min(xs)*image_width
+                        min_y = min(ys)*image_height
+                        max_x = max(xs)*image_width
+                        max_y = max(ys)*image_height
+                        vertices = [min_x, min_y, max_x, max_y]
+                        bboxes.append(vertices)
+                        labels.append(obj.name)
+
+            print(f"bounding boxes: {bboxes}")
+            return bboxes
+            
+        
         def query(points=None, text=None):
             with torch.no_grad():
                 if text is None:
@@ -109,7 +166,9 @@ class Sam3dGUI:
                         multimask_output=True,
                     )
                 elif points is None:
-                    input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
+                    # input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
+                    input_boxes = create_google_vision_bounding_boxes(ctx['cur_img'], text)[0]
+
                     boxes = torch.tensor(input_boxes)[0:1].cuda()
                     transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
                     masks, scores, logits = sam_pred.predict_torch(

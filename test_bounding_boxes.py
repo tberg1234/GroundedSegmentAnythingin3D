@@ -114,8 +114,6 @@ def plot_bboxes(
     print("Saved image with detections to %s" % outfile)
 
 
-
-
 if __name__ == "__main__":
     img_source = 'data/nerf_data/nerf_llff_data/fern/images_4/image000.png'
     objects = localize_objects(img_source)

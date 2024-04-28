@@ -26,6 +26,7 @@ yapf==0.32.0
 flask==2.2.0
 Werkzeug==2.2.2
 google-cloud-speech
+google-cloud-vision
 Ninja
 einops-exts
 mmcv==2.1.0 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.0/index.html

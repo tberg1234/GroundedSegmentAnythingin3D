@@ -8,6 +8,8 @@ from pathlib import Path
 import os
 
 def plot_bboxes(
+  TYPE: str,
+  SEG_TYPE: str,
   image_file: str,
   bboxes: List[List[float]],
   xywh: bool = True,
@@ -29,30 +31,26 @@ def plot_bboxes(
     # add axes to the image
     ax = fig.add_axes([0, 0, 1, 1])
 
-    image_folder = os.path.abspath(os.getcwd()+"/bboxes")
+    image_folder = os.path.abspath(os.getcwd()+"/bboxes/"+TYPE)
 
     # read and plot the image
     image = plt.imread(image_file)
     plt.imshow(image)
 
-    img_arr = np.array(image)
-    image_width = img_arr.shape[1]
-    image_height = img_arr.shape[0]
-
     # Iterate over all the bounding boxes
     for i, bbox in enumerate(bboxes):
         if xywh:
           xmin, ymin, w, h = bbox
-          xmin = xmin*image_width
-          ymin = ymin*image_height
-          w = w*image_width
-          h = w*image_height
+          xmin = xmin
+          ymin = ymin
+          w = w
+          h = w
         else:
           xmin, ymin, xmax, ymax = bbox
-          xmin = xmin*image_width
-          xmax = xmax*image_width
-          ymin = ymin*image_height
-          ymax = ymax*image_height
+          xmin = xmin
+          xmax = xmax
+          ymin = ymin
+          ymax = ymax
           w = (xmax - xmin)
           h = (ymax - ymin)
 
@@ -81,23 +79,20 @@ def plot_bboxes(
           )
 
     plt.axis('off')
-    outfile = os.path.join(image_folder, "image_bbox.png")
+    outfile = os.path.join(image_folder, SEG_TYPE+"_bbox.png")
     fig.savefig(outfile)
 
     print("Saved image with detections to %s" % outfile)
 
 
 if __name__ == "__main__":
-    img_source = 'data/nerf_data/nerf_llff_data/fern/images_4/image000.png'
-    objects = localize_objects(img_source)
-
-    # for obj in objects:
-    #     #print(obj)
-    #     vertices = obj.bounding_poly.normalized_vertices
-    #     display(drawVertices(img_source, vertices, obj.name))
-
-    bboxes = []
-
-    plot_bboxes(img_source, bboxes, False, labels)
     
-    print(objects)
+    TYPE="flower"
+    SEG_TYPE="grounding-dino"
+    img_source = "../data/nerf_data/nerf_llff_data/"+TYPE+"/images_4/image000.png"
+
+    #bounding boxes recorded while collecting results - manually enter
+    bboxes = [[414.41962, 179.59583,943.6988, 684.52344]]
+    labels = ["flower"]
+
+    plot_bboxes(TYPE, SEG_TYPE, img_source, bboxes, False, labels)

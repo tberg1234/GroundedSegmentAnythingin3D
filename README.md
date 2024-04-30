@@ -41,10 +41,13 @@ pip install -r requirements.txt
 mkdir dependencies; cd dependencies 
 mkdir sam_ckpt; cd sam_ckpt
 wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
-git clone git@github.com:facebookresearch/segment-anything.git 
+git clone git@github.com:facebookresearch/segment-anything.git
+unzip segment-anything.zip
+rm -rf segment-anything.zip
 cd segment-anything; pip install -e .
 
 # Installing Grounding-DINO
+cd ../..
 git clone https://github.com/IDEA-Research/GroundingDINO.git
 cd GroundingDINO/; pip install -e .
 mkdir weights; cd weights
@@ -57,6 +60,7 @@ We now release the configs on these datasets:
 * *Inward-facing:* [mip-NeRF360](https://jonbarron.info/mipnerf360/), [LERF](https://www.lerf.io/)
 
 ### Data structure:  
+Make sure to download the data and set up the directories below prior to running
 <details>
   <summary> (click to expand) </summary>
 
@@ -82,11 +86,19 @@ We now release the configs on these datasets:
   ```bash
   python run.py --config=configs/llff/fern.py --stop_at=20000 --render_video --i_weights=10000
   ```
+- Train NeRF via slurm
+  ```bash
+  bash slurm_nerf_train.sh <partition> <job name>
+  ```
 - Run SA3D in GUI
   ```bash
   python run_seg_gui.py --config=configs/llff/seg/seg_fern.py --segment \
   --sp_name=_gui --num_prompts=20 \
   --render_opt=train --save_ckpt
+  ```
+- Run SA3D in GUI via slurm
+  ```bash
+    bash slurm_ui.sh <partition> <job name>
   ```
 - Render and Save Fly-through Videos
   ```bash
@@ -94,6 +106,10 @@ We now release the configs on these datasets:
   --sp_name=_gui --num_prompts=20 \
   --render_only --render_opt=video --dump_images \
   --seg_type seg_img seg_density
+  ```
+- Render and Save Fly-through Videos via slurm
+  ```bash
+  bash slurm_3d_train.sh <partition> <job name>
   ```
 
 Some tips when run SA3D:

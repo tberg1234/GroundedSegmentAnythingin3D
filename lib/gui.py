@@ -15,6 +15,8 @@ import dash
 from dash import Dash, Input, Output, dcc, html, State
 from dash.exceptions import PreventUpdate
 from .self_prompting import grounding_dino_prompt
+from google.cloud import speech
+from google.cloud import vision
 
 def mark_image(_img, points):
     assert(len(points) > 0)
@@ -45,6 +47,7 @@ class Sam3dGUI:
             'cur_img': None, 
             'btn_clear': 0, 
             'btn_text': 0, 
+            'btn_audio': 0,
             'prompt_type': 'point',
             'show_rgb': False
             }
@@ -64,6 +67,97 @@ class Sam3dGUI:
         '''
         run dash app
         '''
+        def send_file_to_google(upload_file_name):
+            return transcribe_model_selection(speech_file=upload_file_name, model="latest_short")
+        
+        def transcribe_model_selection(
+            speech_file: str,
+            model: str,) -> speech.RecognizeResponse:
+            """Transcribe the given audio file synchronously with
+            the selected model."""
+            client = speech.SpeechClient()
+
+            with open(speech_file, "rb") as audio_file:
+                content = audio_file.read()
+
+            audio = speech.RecognitionAudio(content=content)
+
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=8000,
+                language_code="en-US",
+                model=model,
+            )
+
+            response = client.recognize(config=config, audio=audio)
+
+            for i, result in enumerate(response.results):
+                alternative = result.alternatives[0]
+                print("-" * 20)
+                print(f"First alternative of result {i}")
+                print(f"Transcript: {alternative.transcript}")
+
+            if alternative:
+                return alternative.transcript
+
+            return None
+        
+        def localize_objects(image):
+            """Localize objects in the local image.
+            Args:
+            path: The path to the local file.
+            """
+
+            client = vision.ImageAnnotatorClient()
+
+            # image = vision.Image(image)
+
+            image = vision.Image(content=cv2.imencode('.jpg', image)[1].tostring())
+
+
+            objects = client.object_localization(image=image).localized_object_annotations
+
+            print(f"Number of objects found: {len(objects)}")
+            for object_ in objects:
+                print(f"\n{object_.name} (confidence: {object_.score})")
+                print("Normalized bounding polygon vertices: ")
+                for vertex in object_.bounding_poly.normalized_vertices:
+                    print(f" - ({vertex.x}, {vertex.y})")
+
+            return objects
+        
+        def create_google_vision_bounding_boxes(image, text):
+            objects = localize_objects(image)
+
+            print(f"Google objects: {objects}")
+
+            img_arr = np.array(image)
+            image_width = img_arr.shape[1]
+            image_height = img_arr.shape[0]
+            bboxes = []
+            labels = []
+            for obj in objects:
+                obj_name = str(obj.name).lower().strip().replace(" ", "")
+                text_name = str(text).lower().strip().replace(" ", "")
+                print(f"Matching Object {obj_name} with Text {text_name}")
+                if obj_name == text_name:
+                    xs = set()
+                    ys = set()
+                    vertices = obj.bounding_poly.normalized_vertices
+                    for vert in vertices:
+                        xs.add(vert.x)
+                        ys.add(vert.y)
+                    min_x = min(xs)*image_width
+                    min_y = min(ys)*image_height
+                    max_x = max(xs)*image_width
+                    max_y = max(ys)*image_height
+                    vertices = [min_x, min_y, max_x, max_y]
+                    bboxes.append(vertices)
+                    labels.append(obj.name)
+
+            return bboxes
+            
+        
         def query(points=None, text=None):
             with torch.no_grad():
                 if text is None:
@@ -75,7 +169,13 @@ class Sam3dGUI:
                         multimask_output=True,
                     )
                 elif points is None:
-                    input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
+                    # input_boxes = grounding_dino_prompt(ctx['cur_img'], text)
+                    google_bboxes = create_google_vision_bounding_boxes(ctx['cur_img'], text)
+                    input_boxes = [google_bboxes[0]]
+
+                    print(f"input boxes: {input_boxes}")
+                    print(f"input boxes shape: {np.array(input_boxes).shape}")
+
                     boxes = torch.tensor(input_boxes)[0:1].cuda()
                     transformed_boxes = sam_pred.transform.apply_boxes_torch(boxes, ctx['cur_img'].shape[:2])
                     masks, scores, logits = sam_pred.predict_torch(
@@ -130,7 +230,8 @@ class Sam3dGUI:
                             dcc.Dropdown(
                                 id = 'prompt_type',
                                 options = [{'label': 'Points', 'value': 'point'}, 
-                                        {'label': 'Text', 'value': 'text'},],
+                                        {'label': 'Text', 'value': 'text'},
+                                        {'label': 'Audio', 'value': 'audio'}],
                                 value = 'point'),
                                 html.Div(id = 'output-prompt_type')
                         ]),
@@ -146,6 +247,39 @@ class Sam3dGUI:
                             html.Button(id='submit-button-state', n_clicks=0, children='Generate'),
                             html.Div(id='output-state-text')
                         ]),
+                        html.Br(),
+
+                        # html.H5('Audio File Upload'),
+                        # html.Div([
+                        #     dcc.Input(id='input-file', type='file', value='filename'),
+                        #     dcc.Upload()
+                        #     html.Button(id='file-submit-button-state', n_clicks=0, children='Upload and Generate'),
+                        #     html.Div(id='output-file')
+                        # ]),
+                        # html.Br(),
+
+                         dcc.Upload(
+                            id='upload-data',
+                            children=html.Div([
+                                'Drag and Drop or ',
+                                html.A('Select Files')
+                            ]),
+                            style={
+                                'width': '85%',
+                                'height': '60px',
+                                'lineHeight': '60px',
+                                'borderWidth': '1px',
+                                'borderStyle': 'dashed',
+                                'borderRadius': '5px',
+                                'textAlign': 'center',
+                                'margin': '10px'
+                            },
+                            max_size=-1,
+                            # Allow multiple files to be uploaded
+                            multiple=False
+                        ),
+                        html.Div(id='output-data-upload'),
+                        html.Button('Process Audio File', id='submit-audio-button-state', n_clicks=0),
                         html.Br(),
 
                         html.H5('Please select the mask:'),
@@ -232,6 +366,17 @@ class Sam3dGUI:
                 ctx['num_clicks'] = 0
             return f"Type {value} is chosen"
         
+        # @app.callback(dash.dependencies.Output('output-data-upload', 'children'),
+        #      [dash.dependencies.Input('upload-data', 'contents'),
+        #       dash.dependencies.Input('upload-data', 'filename')])
+        # def update_output(contents, filename):
+        #     if contents is not None:
+        #         # do something with contents
+        #         children='processed data from file ' + filename
+        #         return children
+        #     else:
+        #         return 'no contents'
+        
 
         @app.callback(
             Output('main_image', 'figure'),
@@ -242,9 +387,13 @@ class Sam3dGUI:
             Input('main_image', 'clickData'),
             Input('btn-nclicks-clear', 'n_clicks'),
             Input('submit-button-state', 'n_clicks'),
-            State('input-text-state', 'value')
+            State('input-text-state', 'value'),
+            Input('submit-audio-button-state', 'n_clicks'),
+            # Output('output-data-upload', 'children'),
+            Input('upload-data', 'contents'),
+            Input('upload-data', 'filename')
         )
-        def update_prompt(clickData, btn_point, btn_text, text):
+        def update_prompt(clickData, btn_point, btn_text, text, btn_audio, upload_data, upload_file_name):
             '''
             update mask
             '''
@@ -275,6 +424,21 @@ class Sam3dGUI:
                     return fig0, fig1, fig2, fig3, u'''
                         Input text is "{}"
                     '''.format(text)
+                else:
+                    raise PreventUpdate
+                
+            elif self.ctx['prompt_type'] == 'audio':
+                if btn_audio > self.ctx['btn_audio']:
+                    self.ctx['btn_audio'] += 1
+                    print(f"upload file name is: {upload_file_name}")
+                    text = send_file_to_google(upload_file_name)
+                    if text is not None:
+                        self.ctx['text'] = text
+                        masks, fig0, fig1, fig2, fig3 = query(points=None, text=text)
+                        ctx['masks'] = masks
+                        return fig0, fig1, fig2, fig3, u'''
+                            Input audio parsed as text is "{}"
+                        '''.format(text)
                 else:
                     raise PreventUpdate
             else:
@@ -310,7 +474,6 @@ class Sam3dGUI:
                 return fig_seg_rgb, fig_sam_mask
             else:
                 raise PreventUpdate
-        
 
         @app.callback(
             Output('container-button-training', 'children'),

@@ -33,4 +33,4 @@ def transcribe_model_selection(
 
 
 if __name__ == "__main__":
-    transcribe_model_selection(speech_file="taylor_houseplant.wav", model="latest_short")
+    transcribe_model_selection(speech_file="taylor_flower.wav", model="latest_short")
